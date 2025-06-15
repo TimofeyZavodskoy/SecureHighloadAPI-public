@@ -6,7 +6,7 @@ import ru.hotdog.SecureHighloadAPI.entities.User;
 import java.util.Optional;
 
 public interface UserRep extends JpaRepository<User, Long> {
-    UserRep findByUsername(String username);
-    UserRep findByEmail(String email);
-    Optional<UserRep> findByPassword(String password);
+    Optional<User> findByUsername(String username);
+    boolean existsUserByEmail(String email);
+    boolean existsUserByUsername(String username);
 }

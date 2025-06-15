@@ -14,7 +14,7 @@ public class Role {
     private Long id;
 
     @Column(nullable = false)
-    private String roleName;
+    private String name;
 
     @OneToMany
     @JoinColumn(name = "role_id")

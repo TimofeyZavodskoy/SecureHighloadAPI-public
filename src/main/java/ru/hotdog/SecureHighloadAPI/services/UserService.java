@@ -1,4 +1,4 @@
-package ru.hotdog.SecureHighloadAPI;
+package ru.hotdog.SecureHighloadAPI.services;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +10,7 @@ import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 
 @Service
 @RequiredArgsConstructor
+
 public class UserService implements UserDetailsService {
     private final UserRep userRep;
 
@@ -17,11 +18,10 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) {
         User user = userRep.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        String.format("User '%s' not founded", username)
+                        String.format("User '%s' not found", username)
                 ));
         return UserDetailsImpl.build(
                 userRep.findByUsername(username)
-                        .orElseThrow(() -> new UsernameNotFoundException("..."))
-        );
+                        .orElseThrow(() -> new UsernameNotFoundException("...")));
     }
 }
