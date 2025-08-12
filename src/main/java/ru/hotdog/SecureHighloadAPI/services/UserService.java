@@ -10,7 +10,6 @@ import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 
 @Service
 @RequiredArgsConstructor
-
 public class UserService implements UserDetailsService {
     private final UserRep userRep;
 
@@ -20,8 +19,6 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException(
                         String.format("User '%s' not found", username)
                 ));
-        return UserDetailsImpl.build(
-                userRep.findByUsername(username)
-                        .orElseThrow(() -> new UsernameNotFoundException("...")));
+        return UserDetailsImpl.build(user);
     }
 }

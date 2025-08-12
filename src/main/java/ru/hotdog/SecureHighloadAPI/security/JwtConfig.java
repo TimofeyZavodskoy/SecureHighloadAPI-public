@@ -22,14 +22,16 @@ public class JwtConfig {
 
     public String generateToken(Authentication authentication) {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        return Jwts.builder().setSubject((userDetails.getUsername())).setIssuedAt(new Date())
-                .setExpiration(new Date(new Date().getTime() + lifetime))
-                .signWith(SignatureAlgorithm.HS512, secret)
+        return Jwts.builder()
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + lifetime))
+                .signWith(getSigninKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
     public String getUsernameFromToken(String token) {
-        JwtParser parser = Jwts.parser()
+        JwtParser parser = Jwts.parserBuilder()
                 .setSigningKey(getSigninKey())
                 .build();
         return parser.parseClaimsJws(token).getBody().getSubject();
