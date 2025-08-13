@@ -30,21 +30,6 @@ public class Auth {
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
 
-    @GetMapping("/signin")
-    public String showSigninForm() {
-        System.out.println("SigninForm");
-        System.out.println("Username: " + SecurityContextHolder.getContext().getAuthentication().getName());
-        return "login";
-    }
-
-    @GetMapping("/signup")
-    public String showSignupForm(Model model) {
-        Signup user = new Signup();
-        model.addAttribute("user", user);
-        System.out.println("SignupForm");
-        return "registraton";
-    }
-
     @PostMapping("/signup/save")
     public ResponseEntity<?> signup(@Valid @RequestBody Signup signupRequest) {
         if (userRep.existsUserByUsername(signupRequest.getUsername())) {
@@ -67,17 +52,6 @@ public class Auth {
         System.out.println("saved user");
         return ResponseEntity.ok("Signup successful");
     }
-//    @PostMapping("/signup/save")
-//    public String signup(@Valid @ModelAttribute("user") Signup user, BindingResult result, Model model) {
-//        User existingUser = userRep.findByEmail(user.getEmail());
-//        System.out.println(user.getEmail());
-//        if(existingUser != null && existingUser.getEmail() != null && !existingUser.getEmail().isEmpty()){
-//            result.rejectValue("email", null,
-//                    "There is already an account registered with the same email");
-//        }
-//        userService.saveUser(user);
-//        return "redirect:/register?success";
-//    }
 
     @PostMapping("/signin")
     public ResponseEntity<?> signin(@Valid @RequestBody Signin signinRequest) {
