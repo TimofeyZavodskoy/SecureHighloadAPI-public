@@ -18,16 +18,25 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import ru.hotdog.SecureHighloadAPI.dtos.Signin;
 import ru.hotdog.SecureHighloadAPI.dtos.Signup;
+import ru.hotdog.SecureHighloadAPI.dtos.UserResponse;
 import ru.hotdog.SecureHighloadAPI.entities.User;
+import ru.hotdog.SecureHighloadAPI.mappers.UserMapper;
 import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
+import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
-@Controller
+@RestController
 @RequestMapping("/auth")
 @AllArgsConstructor
 public class Auth {
     private final UserRep userRep;
+    private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
@@ -52,9 +61,12 @@ public class Auth {
         user.setEmail(signupRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
         userRep.save(user);
-        System.out.println("saved user");
-        log.info("saved user received");
-        return ResponseEntity.ok("Signup successful");
+
+        UserResponse userResponse = userMapper.toUserResponse(user);
+        log.info("save user response received");
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(userResponse);
     }
 
     @PostMapping("/signin")
@@ -74,17 +86,15 @@ public class Auth {
         }
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtConfig.generateToken(authentication);
-        return ResponseEntity.ok(jwt);
-    }
 
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        User user = userRep.findById(userDetails.getId()).orElse(null);
+        UserResponse userResponse = userMapper.toUserResponse(user);
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", jwt);
+        response.put("user", userResponse);
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<String> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        StringBuilder errors = new StringBuilder();
-        ex.getBindingResult().getFieldErrors().forEach(error -> {
-            errors.append(error.getField()).append(": ").append(error.getDefaultMessage()).append("; ");
-        });
-        return ResponseEntity.badRequest().body(errors.toString());
-    }
+        return ResponseEntity.ok(response);
+     }
 }
