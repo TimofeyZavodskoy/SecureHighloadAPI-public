@@ -1,6 +1,7 @@
 package ru.hotdog.SecureHighloadAPI.security;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +23,7 @@ import ru.hotdog.SecureHighloadAPI.services.UserService;
 
 import java.util.List;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -38,33 +40,54 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
-@Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(request -> {
-                CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("*"));
-                config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-                config.setAllowedHeaders(List.of("*"));
-                // config.setAllowCredentials(true); // если надо — убери "*" в origins
-                return config;
-            }))
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-            .authorizeHttpRequests(auth -> auth
-                    // разрешаем health, ошибки, статику, swagger (если есть)
-                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .requestMatchers("/auth/**").permitAll()
-                    .requestMatchers("/error").permitAll()
-                    .requestMatchers("/actuator/health").permitAll()
-                    .requestMatchers("/secured/**").authenticated()
-                    .anyRequest().authenticated()
-            )
-            .formLogin(AbstractHttpConfigurer::disable)
-            .httpBasic(AbstractHttpConfigurer::disable)
-            .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        log.info("Security Filter Chain");
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(request -> {
+                    CorsConfiguration corsConfiguration = new CorsConfiguration();
+                    corsConfiguration.applyPermitDefaultValues();
+                    return corsConfiguration;
+                }))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/secured/user").fullyAuthenticated()
+                        .anyRequest().permitAll()
+                )
+                .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
 
-    return http.build();
-}
+    }
+//@Bean
+//public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+//    http
+//            .csrf(AbstractHttpConfigurer::disable)
+//            .cors(cors -> cors.configurationSource(request -> {
+//                CorsConfiguration config = new CorsConfiguration();
+//                config.setAllowedOrigins(List.of("*"));
+//                config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+//                config.setAllowedHeaders(List.of("*"));
+//                // config.setAllowCredentials(true); // если надо — убери "*" в origins
+//                return config;
+//            }))
+//            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//            .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+//            .authorizeHttpRequests(auth -> auth
+//                    // разрешаем health, ошибки, статику, swagger (если есть)
+//                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+//                    .requestMatchers("/auth/**").permitAll()
+//                    .requestMatchers("/error").permitAll()
+//                    .requestMatchers("/actuator/health").permitAll()
+//                    .requestMatchers("/secured/**").authenticated()
+//                    .anyRequest().authenticated()
+//            )
+//            .formLogin(AbstractHttpConfigurer::disable)
+//            .httpBasic(AbstractHttpConfigurer::disable)
+//            .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
+//
+//    return http.build();
+//}
 }

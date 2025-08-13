@@ -4,6 +4,7 @@ import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -13,14 +14,16 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
+@Slf4j
 @Component
 public class JwtConfig {
-    @Value("${securituTesting.app.secret}")
+    @Value("${api.app.secret}")
     private String secret;
-    @Value("${securituTesting.app.lifetime}")
+    @Value("${api.app.lifetime}")
     private int lifetime;
 
     public String generateToken(Authentication authentication) {
+        log.info("Generating token");
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
@@ -31,6 +34,7 @@ public class JwtConfig {
     }
 
     public String getUsernameFromToken(String token) {
+        log.info("Getting username from token");
         JwtParser parser = Jwts.parserBuilder()
                 .setSigningKey(getSigninKey())
                 .build();

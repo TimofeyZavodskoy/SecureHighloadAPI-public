@@ -2,6 +2,7 @@ package ru.hotdog.SecureHighloadAPI.controllers;
 
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,6 +22,7 @@ import ru.hotdog.SecureHighloadAPI.entities.User;
 import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
 
+@Slf4j
 @Controller
 @RequestMapping("/auth")
 @AllArgsConstructor
@@ -44,12 +46,14 @@ public class Auth {
                     .status(HttpStatus.BAD_REQUEST)
                     .body("Email already exists, choose another one");
         }
+        log.info("signup request received");
         User user = new User();
         user.setUsername(signupRequest.getUsername());
         user.setEmail(signupRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
         userRep.save(user);
         System.out.println("saved user");
+        log.info("saved user received");
         return ResponseEntity.ok("Signup successful");
     }
 
