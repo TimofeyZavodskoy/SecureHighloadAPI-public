@@ -28,6 +28,17 @@ public class GExceptionsHandler {
         private Map<String, String> details;
     }
 
+    private  ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String error, Map<String, String> details) {
+        return ResponseEntity
+                .status(status)
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(status.value())
+                        .error(error)
+                        .details(details)
+                        .build());
+    }
+
     //валидка в dto
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
@@ -62,5 +73,13 @@ public class GExceptionsHandler {
         Map<String, String> errors = new HashMap<>();
         errors.put("error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errors);
+    }
+
+    //кастомные ошибки
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ErrorResponse> hendleAppException(AppException ex) {
+        Map<String, String> details = new HashMap<>();
+        details.put("message", ex.getMessage());
+        return buildErrorResponse(ex.getHttpStatus(), "APP ERROR", details);
     }
 }
