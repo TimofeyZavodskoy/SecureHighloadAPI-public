@@ -20,6 +20,8 @@ import ru.hotdog.SecureHighloadAPI.dtos.Signin;
 import ru.hotdog.SecureHighloadAPI.dtos.Signup;
 import ru.hotdog.SecureHighloadAPI.dtos.UserResponse;
 import ru.hotdog.SecureHighloadAPI.entities.User;
+import ru.hotdog.SecureHighloadAPI.exceptions.AppException;
+import ru.hotdog.SecureHighloadAPI.exceptions.GExceptionsHandler;
 import ru.hotdog.SecureHighloadAPI.mappers.UserMapper;
 import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
@@ -27,6 +29,7 @@ import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,19 +45,14 @@ public class Auth {
     private final JwtConfig jwtConfig;
 
     @PostMapping("/signup/save")
-    public ResponseEntity<?> signup(@Valid @RequestBody Signup signupRequest) {
+    public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> signup(@Valid @RequestBody Signup signupRequest) {
         if (userRep.existsUserByUsername(signupRequest.getUsername())) {
-            System.out.println("user already exists");
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body("Username already exists, choose another one");
+            throw new AppException(HttpStatus.BAD_REQUEST, "Username already exists");
         }
         if (userRep.existsUserByEmail(signupRequest.getEmail())) {
-            System.out.println("email already exists");
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body("Email already exists, choose another one");
+            throw new AppException(HttpStatus.BAD_REQUEST, "Email already exists");
         }
+
         log.info("signup request received");
         User user = new User();
         user.setUsername(signupRequest.getUsername());
@@ -66,7 +64,12 @@ public class Auth {
         log.info("save user response received");
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(userResponse);
+                .body(GExceptionsHandler.ApiResponse.<UserResponse>builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.CREATED.value())
+                        .message("User registered successfully")
+                        .data(userResponse)
+                        .build());
     }
 
     @PostMapping("/signin")
@@ -80,9 +83,7 @@ public class Auth {
                     )
             );
         } catch (BadCredentialsException e) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("Bad credentials");
+            throw new AppException(HttpStatus.UNAUTHORIZED, "Bad credentials");
         }
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtConfig.generateToken(authentication);
@@ -95,6 +96,12 @@ public class Auth {
         response.put("token", jwt);
         response.put("user", userResponse);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(
+                GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.OK.value())
+                        .message("Signin successful")
+                        .data(response)
+                        .build());
      }
 }

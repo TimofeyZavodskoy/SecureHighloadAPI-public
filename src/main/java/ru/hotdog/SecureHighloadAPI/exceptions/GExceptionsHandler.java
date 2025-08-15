@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,58 +27,68 @@ public class GExceptionsHandler {
         private Map<String, String> details;
     }
 
-    private  ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String error, Map<String, String> details) {
-        return ResponseEntity
-                .status(status)
-                .body(ErrorResponse.builder()
-                        .timestamp(LocalDateTime.now())
-                        .status(status.value())
-                        .error(error)
-                        .details(details)
-                        .build());
+    @Data
+    @Builder
+    public static class ApiResponse<T> {
+        private LocalDateTime timestamp;
+        private int status;
+        private String message;
+        private T data;
     }
 
-    //валидка в dto
+
+    // валидация дто
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
-            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
-        return ResponseEntity.badRequest().body(errors);
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage())
+        );
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Validation error")
+                .details(errors)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    // валидка параметров
+    //ошибки параметров валидации
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, String>> handleConstraintViolationException(ConstraintViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getConstraintViolations().forEach((constraintViolation) -> {
-            errors.put(constraintViolation.getPropertyPath().toString(), constraintViolation.getMessage());
-        });
-        return ResponseEntity.badRequest().body(errors);
+        ex.getConstraintViolations().forEach(cv ->
+                errors.put(cv.getPropertyPath().toString(), cv.getMessage())
+        );
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Validation error")
+                .details(errors)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    //любые другие ошибки
+    // все остальные ошибки
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleException(Exception ex) {
-        log.error(ex.getMessage(), ex);
-        Map<String, String> errors = new HashMap<>();
-        errors.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errors);
-    }
+    public ResponseEntity<ErrorResponse> handleException(Exception ex) {
+        log.error("Unexpected error", ex);
 
-    //кастомные ошибки
-    @ExceptionHandler(AppException.class)
-    public ResponseEntity<ErrorResponse> hendleAppException(AppException ex) {
-        Map<String, String> details = new HashMap<>();
-        details.put("message", ex.getMessage());
-        return buildErrorResponse(ex.getHttpStatus(), "APP ERROR", details);
+        Map<String, String> errors = new HashMap<>();
+        errors.put("exception", ex.getClass().getSimpleName());
+        errors.put("message", ex.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error("Internal server error")
+                .details(errors)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }
