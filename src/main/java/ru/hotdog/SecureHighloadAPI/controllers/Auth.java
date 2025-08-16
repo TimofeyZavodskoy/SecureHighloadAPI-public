@@ -1,5 +1,8 @@
 package ru.hotdog.SecureHighloadAPI.controllers;
 
+import com.nimbusds.oauth2.sdk.TokenResponse;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,16 +22,19 @@ import org.springframework.web.bind.annotation.*;
 import ru.hotdog.SecureHighloadAPI.dtos.Signin;
 import ru.hotdog.SecureHighloadAPI.dtos.Signup;
 import ru.hotdog.SecureHighloadAPI.dtos.UserResponse;
+import ru.hotdog.SecureHighloadAPI.entities.RefreshToken;
 import ru.hotdog.SecureHighloadAPI.entities.User;
 import ru.hotdog.SecureHighloadAPI.exceptions.AppException;
 import ru.hotdog.SecureHighloadAPI.exceptions.GExceptionsHandler;
 import ru.hotdog.SecureHighloadAPI.mappers.UserMapper;
 import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
 import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
+import ru.hotdog.SecureHighloadAPI.services.RefreshTokenService;
 import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,6 +49,7 @@ public class Auth {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/signup/save")
     public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> signup(@Valid @RequestBody Signup signupRequest) {
@@ -86,15 +93,26 @@ public class Auth {
             throw new AppException(HttpStatus.UNAUTHORIZED, "Bad credentials");
         }
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtConfig.generateToken(authentication);
+        String access = jwtConfig.generateAccessToken(authentication);
+        var refreshPair = jwtConfig.generateRefreshToken(authentication);
+
+        String username = signinRequest.getUsername();
+
+        Jws<Claims> parsed = jwtConfig.parseToken(refreshPair.token());
+        refreshTokenService.save(
+                username,
+                jwtConfig.getJti(parsed),
+                jwtConfig.getExpiration(parsed)
+        );
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         User user = userRep.findById(userDetails.getId()).orElse(null);
         UserResponse userResponse = userMapper.toUserResponse(user);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("token", jwt);
+        response.put("token pair", new TokenResponse(access, refreshPair.token()));
         response.put("user", userResponse);
+
 
         return ResponseEntity.ok(
                 GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()
@@ -103,5 +121,63 @@ public class Auth {
                         .message("Signin successful")
                         .data(response)
                         .build());
-     }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshToken refreshToken) {
+        try {
+
+            Jws<Claims> jws = jwtConfig.parseToken(String.valueOf(refreshToken));
+            if (!jwtConfig.isRefresh(jws)) {
+                throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid");
+            }
+
+            String username = jwtConfig.getUsernameFromToken(String.valueOf(jws));
+            String oldJti = jwtConfig.getJti(jws);
+            Instant expiration = jwtConfig.getExpiration(jws);
+
+            if (!refreshTokenService.isValid(oldJti, expiration)) {
+                throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid/revoked");
+            }
+
+            refreshTokenService.revoke(oldJti);
+
+            String newAccess = jwtConfig.generateAccessToken(username);
+            var newRefreshPair = jwtConfig.generateRefreshToken(username);
+
+            Jws<Claims> newParsed = jwtConfig.parseToken(newRefreshPair.token());
+            refreshTokenService.save(username, jwtConfig.getJti(newParsed), jwtConfig.getExpiration(newParsed));
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("token pair", new TokenResponse(newAccess, newRefreshPair.token()));
+
+            return ResponseEntity.ok(
+                    GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()
+                            .timestamp(LocalDateTime.now())
+                            .status(HttpStatus.OK.value())
+                            .message("Refresh token successful")
+                            .data(response)
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid/revoked");
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestParam String username) {
+        refreshTokenService.revokeAllByUsername(username);
+
+        return ResponseEntity.ok(
+                GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.OK.value())
+                        .message("Logged out")
+                        .build()
+        );
+    }
+
+
+    public record TokenResponse(String accessToken, String refreshToken) {}
+
 }
