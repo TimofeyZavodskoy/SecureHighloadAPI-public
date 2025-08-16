@@ -16,7 +16,6 @@ public class Role {
     @Column(nullable = false)
     private String name;
 
-    @OneToMany
-    @JoinColumn(name = "role_id")
+    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<User> users;
 }
