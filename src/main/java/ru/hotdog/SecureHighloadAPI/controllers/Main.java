@@ -1,5 +1,6 @@
 package ru.hotdog.SecureHighloadAPI.controllers;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,15 +16,18 @@ import java.security.Principal;
 @Slf4j
 @RestController
 @RequestMapping("/secured")
+@AllArgsConstructor
 public class Main {
     private UserRep userRep;
 
     @GetMapping("/user")
     public String access(Principal principal) {
         if (principal != null) {
+            log.info(principal.getName());
             return principal.getName();
         }
         else {
+            log.error("you are not logged in");
             return "You are not logged in";
         }
     }
@@ -31,7 +35,7 @@ public class Main {
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> delete(@PathVariable Long id) {
         try {
-            userRep.deleteById(id);
+            userRep.deleteUserById(id);
         } catch (BadCredentialsException e) {
             throw new AppException(HttpStatus.FORBIDDEN, "Bad credentials");
         }
