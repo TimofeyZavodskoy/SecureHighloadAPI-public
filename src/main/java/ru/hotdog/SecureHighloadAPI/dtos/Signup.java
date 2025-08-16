@@ -11,7 +11,7 @@ public class Signup {
     @Size(max = 75, message = "too much! login length should be less than 75 characters")
     private String username;
     @NotEmpty(message = "password couldn't be empty")
-    @Size(min = 16, message = "password length should be at least 16 characters")
+    @Size(min = 6, message = "password length should be at least 6 characters")
     private String password;
     @Email(message = "email must to contain '@' symbol")
     @NotEmpty(message = "email couldn't be empty")
