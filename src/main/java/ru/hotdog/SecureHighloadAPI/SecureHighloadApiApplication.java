@@ -3,7 +3,7 @@ package ru.hotdog.SecureHighloadAPI;
 import lombok.AllArgsConstructor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
+import ru.hotdog.SecureHighloadAPI.security.configs.JwtConfig;
 
 import java.io.IOException;
 

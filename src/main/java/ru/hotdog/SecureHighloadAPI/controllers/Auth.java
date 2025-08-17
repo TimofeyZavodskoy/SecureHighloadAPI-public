@@ -1,6 +1,5 @@
 package ru.hotdog.SecureHighloadAPI.controllers;
 
-import com.nimbusds.oauth2.sdk.TokenResponse;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import jakarta.validation.Valid;
@@ -14,10 +13,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import ru.hotdog.SecureHighloadAPI.dtos.Signin;
 import ru.hotdog.SecureHighloadAPI.dtos.Signup;
@@ -28,12 +23,11 @@ import ru.hotdog.SecureHighloadAPI.exceptions.AppException;
 import ru.hotdog.SecureHighloadAPI.exceptions.GExceptionsHandler;
 import ru.hotdog.SecureHighloadAPI.mappers.UserMapper;
 import ru.hotdog.SecureHighloadAPI.repositories.UserRep;
-import ru.hotdog.SecureHighloadAPI.security.JwtConfig;
+import ru.hotdog.SecureHighloadAPI.security.configs.JwtConfig;
 import ru.hotdog.SecureHighloadAPI.services.RefreshTokenService;
 import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
+import ru.hotdog.SecureHighloadAPI.services.UserService;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -50,23 +44,24 @@ public class Auth {
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
     private final RefreshTokenService refreshTokenService;
+    private final UserService userService;
 
     @PostMapping("/signup/save")
     public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> signup(@Valid @RequestBody Signup signupRequest) {
-        if (userRep.existsUserByUsername(signupRequest.getUsername())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Username already exists");
-        }
-        if (userRep.existsUserByEmail(signupRequest.getEmail())) {
-            throw new AppException(HttpStatus.BAD_REQUEST, "Email already exists");
-        }
-
-        log.info("signup request received");
-        User user = new User();
-        user.setUsername(signupRequest.getUsername());
-        user.setEmail(signupRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
-        userRep.save(user);
-
+//        if (userRep.existsUserByUsername(signupRequest.getUsername())) {
+//            throw new AppException(HttpStatus.BAD_REQUEST, "Username already exists");
+//        }
+//        if (userRep.existsUserByEmail(signupRequest.getEmail())) {
+//            throw new AppException(HttpStatus.BAD_REQUEST, "Email already exists");
+//        }
+//
+//        log.info("signup request received");
+//        User user = new User();
+//        user.setUsername(signupRequest.getUsername());
+//        user.setEmail(signupRequest.getEmail());
+//        user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+//        userRep.save(user);
+        User user = userService.createUser(signupRequest);
         UserResponse userResponse = userMapper.toUserResponse(user);
         log.info("save user response received");
         return ResponseEntity
@@ -74,7 +69,7 @@ public class Auth {
                 .body(GExceptionsHandler.ApiResponse.<UserResponse>builder()
                         .timestamp(LocalDateTime.now())
                         .status(HttpStatus.CREATED.value())
-                        .message("User registered successfully")
+                        .message("User registered successfully with ROLE_USER")
                         .data(userResponse)
                         .build());
     }

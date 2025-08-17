@@ -1,4 +1,4 @@
-package ru.hotdog.SecureHighloadAPI.security;
+package ru.hotdog.SecureHighloadAPI.security.configs;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
