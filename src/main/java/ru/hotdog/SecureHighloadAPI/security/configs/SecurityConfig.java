@@ -25,10 +25,6 @@ import ru.hotdog.SecureHighloadAPI.security.TokenFilter;
 public class SecurityConfig {
     private final TokenFilter tokenFilter;
 
-//    @Bean
-//    public PasswordEncoder passwordEncoder() {
-//        return new BCryptPasswordEncoder();
-//    }
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
@@ -48,6 +44,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/secured/user").fullyAuthenticated()
                         .anyRequest().permitAll()
                 )
@@ -55,33 +52,4 @@ public class SecurityConfig {
         return http.build();
 
     }
-//@Bean
-//public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//    http
-//            .csrf(AbstractHttpConfigurer::disable)
-//            .cors(cors -> cors.configurationSource(request -> {
-//                CorsConfiguration config = new CorsConfiguration();
-//                config.setAllowedOrigins(List.of("*"));
-//                config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-//                config.setAllowedHeaders(List.of("*"));
-//                // config.setAllowCredentials(true); // если надо — убери "*" в origins
-//                return config;
-//            }))
-//            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//            .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
-//            .authorizeHttpRequests(auth -> auth
-//                    // разрешаем health, ошибки, статику, swagger (если есть)
-//                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-//                    .requestMatchers("/auth/**").permitAll()
-//                    .requestMatchers("/error").permitAll()
-//                    .requestMatchers("/actuator/health").permitAll()
-//                    .requestMatchers("/secured/**").authenticated()
-//                    .anyRequest().authenticated()
-//            )
-//            .formLogin(AbstractHttpConfigurer::disable)
-//            .httpBasic(AbstractHttpConfigurer::disable)
-//            .addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
-//
-//    return http.build();
-//}
 }

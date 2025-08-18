@@ -1,5 +1,6 @@
 package ru.hotdog.SecureHighloadAPI.controllers;
 
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -25,22 +26,9 @@ public class Main {
         if (principal != null) {
             log.info(principal.getName());
             return principal.getName();
-        }
-        else {
+        } else {
             log.error("you are not logged in");
             return "You are not logged in";
         }
-    }
-
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> delete(@PathVariable Long id) {
-        try {
-            userRep.deleteUserById(id);
-        } catch (BadCredentialsException e) {
-            throw new AppException(HttpStatus.FORBIDDEN, "Bad credentials");
-        }
-        log.info("user deleted");
-
-        return ResponseEntity.noContent().build();
     }
 }

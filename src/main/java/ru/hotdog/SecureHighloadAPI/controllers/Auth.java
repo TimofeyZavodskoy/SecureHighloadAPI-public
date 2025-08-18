@@ -1,7 +1,9 @@
 package ru.hotdog.SecureHighloadAPI.controllers;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtException;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import ru.hotdog.SecureHighloadAPI.dtos.RefreshRequest;
 import ru.hotdog.SecureHighloadAPI.dtos.Signin;
 import ru.hotdog.SecureHighloadAPI.dtos.Signup;
 import ru.hotdog.SecureHighloadAPI.dtos.UserResponse;
@@ -28,6 +31,7 @@ import ru.hotdog.SecureHighloadAPI.services.RefreshTokenService;
 import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
 import ru.hotdog.SecureHighloadAPI.services.UserService;
 
+import java.security.Principal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -40,7 +44,6 @@ import java.util.Map;
 public class Auth {
     private final UserRep userRep;
     private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtConfig jwtConfig;
     private final RefreshTokenService refreshTokenService;
@@ -48,19 +51,6 @@ public class Auth {
 
     @PostMapping("/signup/save")
     public ResponseEntity<GExceptionsHandler.ApiResponse<UserResponse>> signup(@Valid @RequestBody Signup signupRequest) {
-//        if (userRep.existsUserByUsername(signupRequest.getUsername())) {
-//            throw new AppException(HttpStatus.BAD_REQUEST, "Username already exists");
-//        }
-//        if (userRep.existsUserByEmail(signupRequest.getEmail())) {
-//            throw new AppException(HttpStatus.BAD_REQUEST, "Email already exists");
-//        }
-//
-//        log.info("signup request received");
-//        User user = new User();
-//        user.setUsername(signupRequest.getUsername());
-//        user.setEmail(signupRequest.getEmail());
-//        user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
-//        userRep.save(user);
         User user = userService.createUser(signupRequest);
         UserResponse userResponse = userMapper.toUserResponse(user);
         log.info("save user response received");
@@ -69,7 +59,7 @@ public class Auth {
                 .body(GExceptionsHandler.ApiResponse.<UserResponse>builder()
                         .timestamp(LocalDateTime.now())
                         .status(HttpStatus.CREATED.value())
-                        .message("User registered successfully with ROLE_USER")
+                        .message("User registered successfully")
                         .data(userResponse)
                         .build());
     }
@@ -96,6 +86,7 @@ public class Auth {
         Jws<Claims> parsed = jwtConfig.parseToken(refreshPair.token());
         refreshTokenService.save(
                 username,
+                refreshPair.token(),
                 jwtConfig.getJti(parsed),
                 jwtConfig.getExpiration(parsed)
         );
@@ -119,15 +110,16 @@ public class Auth {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshToken refreshToken) {
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest request) {
+        String refreshToken = request.getRefreshToken();
         try {
 
-            Jws<Claims> jws = jwtConfig.parseToken(String.valueOf(refreshToken));
+            Jws<Claims> jws = jwtConfig.parseToken(refreshToken);
             if (!jwtConfig.isRefresh(jws)) {
                 throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid");
             }
 
-            String username = jwtConfig.getUsernameFromToken(String.valueOf(jws));
+            String username = jwtConfig.getUsernameFromToken(refreshToken);
             String oldJti = jwtConfig.getJti(jws);
             Instant expiration = jwtConfig.getExpiration(jws);
 
@@ -141,7 +133,7 @@ public class Auth {
             var newRefreshPair = jwtConfig.generateRefreshToken(username);
 
             Jws<Claims> newParsed = jwtConfig.parseToken(newRefreshPair.token());
-            refreshTokenService.save(username, jwtConfig.getJti(newParsed), jwtConfig.getExpiration(newParsed));
+            refreshTokenService.save(username, newRefreshPair.token(), jwtConfig.getJti(newParsed), jwtConfig.getExpiration(newParsed));
 
             Map<String, Object> response = new HashMap<>();
             response.put("token pair", new TokenResponse(newAccess, newRefreshPair.token()));
@@ -154,14 +146,16 @@ public class Auth {
                             .data(response)
                             .build()
             );
-        } catch (Exception e) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid/revoked");
+        } catch (ExpiredJwtException e) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is expired");
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid");
         }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestParam String username) {
-        refreshTokenService.revokeAllByUsername(username);
+    public ResponseEntity<?> logout(Principal principal) {
+        refreshTokenService.revokeAllByUsername(principal.getName());
 
         return ResponseEntity.ok(
                 GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()

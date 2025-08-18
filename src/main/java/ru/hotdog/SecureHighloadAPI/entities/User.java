@@ -26,9 +26,10 @@ public class  User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(name = "user_roles",
-            joinColumns = { @JoinColumn(name = "user_id", referencedColumnName = "id") },
-            inverseJoinColumns = { @JoinColumn(name = "role_id", referencedColumnName = "id") })
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
     private List<Role> roles;
 }

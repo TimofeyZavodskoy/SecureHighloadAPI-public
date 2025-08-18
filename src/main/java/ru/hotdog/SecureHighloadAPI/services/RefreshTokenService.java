@@ -14,9 +14,10 @@ public class RefreshTokenService {
     private final RefreshTokenRep refreshTokenRep;
 
     @Transactional
-    public RefreshToken save(String username, String jti, Instant expiresAt) {
+    public RefreshToken save(String username,String token, String jti, Instant expiresAt) {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUsername(username);
+        refreshToken.setToken(token);
         refreshToken.setJti(jti);
         refreshToken.setExpiresAt(expiresAt);
         refreshToken.setRevoked(false);
@@ -27,7 +28,6 @@ public class RefreshTokenService {
         return refreshTokenRep.findByJti(jti)
                 .filter(rt -> !rt.isRevoked())
                 .filter(rt -> rt.getExpiresAt().isAfter(Instant.now()))
-                .filter(rt -> rt.getExpiresAt().equals(tokenExpFromJwt) || !rt.getExpiresAt().isBefore(tokenExpFromJwt))
                 .isPresent();
     }
 
@@ -39,12 +39,12 @@ public class RefreshTokenService {
         });
     }
 
-
     @Transactional
     public void revokeAllByUsername(String username) {
-        refreshTokenRep.findAll().stream()
-                .filter(rt -> rt.getUsername().equals(username) && !rt.isRevoked())
-                .forEach(rt -> { rt.setRevoked(true); refreshTokenRep.save(rt); });
-
+        refreshTokenRep.findAllByUsernameAndRevokedFalse(username)
+                .forEach(rt -> {
+                    rt.setRevoked(true);
+                    refreshTokenRep.save(rt);
+                });
     }
 }

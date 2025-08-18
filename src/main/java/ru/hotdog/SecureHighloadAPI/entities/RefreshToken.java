@@ -20,7 +20,10 @@ public class RefreshToken {
     @Column(nullable = false)
     private String jti;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true, length = 1000)
+    private String token;
+
+    @Column(nullable = false, name = "expiry_date")
     private Instant expiresAt;
 
     @Column(nullable = false)

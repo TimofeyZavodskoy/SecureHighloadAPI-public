@@ -6,16 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -34,12 +33,18 @@ public class JwtConfig {
         String jti = UUID.randomUUID().toString();
         log.info("Generating accessToken");
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .setId(jti)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + accessLifetime))
-                .addClaims(Map.of("type", "access"))
+                .claim("type", "access")
+                .claim("roles", roles)
                 .signWith(getSigninKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
