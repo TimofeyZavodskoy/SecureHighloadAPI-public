@@ -1,0 +1,12 @@
+spring.application.name=
+spring.datasource.url=jdbc:postgresql://localhost:5433/db_name
+spring.datasource.username=postgres
+spring.datasource.password=
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.threads.virtual.enabled=true
+spring.jpa.show-sql=true
+
+
+your_app_name.app.secret = JWT_secret
+your_app_name.app.lifetime = JWT_lifetime(ms)

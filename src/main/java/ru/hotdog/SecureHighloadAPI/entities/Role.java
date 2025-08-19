@@ -1,5 +1,6 @@
 package ru.hotdog.SecureHighloadAPI.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -16,7 +17,7 @@ public class Role {
     @Column(nullable = false)
     private String name;
 
-    @OneToMany
-    @JoinColumn(name = "role_id")
+    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<User> users;
 }
