@@ -14,6 +14,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import ru.hotdog.SecureHighloadAPI.dtos.RefreshRequest;
@@ -113,17 +114,17 @@ public class Auth {
     public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest request) {
         String refreshToken = request.getRefreshToken();
         try {
-
             Jws<Claims> jws = jwtConfig.parseToken(refreshToken);
             if (!jwtConfig.isRefresh(jws)) {
                 throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid");
             }
 
-            String username = jwtConfig.getUsernameFromToken(refreshToken);
+            String username = jws.getBody().getSubject();
             String oldJti = jwtConfig.getJti(jws);
             Instant expiration = jwtConfig.getExpiration(jws);
+            log.info("refresh token expiration", expiration);
 
-            if (!refreshTokenService.isValid(oldJti, expiration)) {
+            if (!refreshTokenService.isValid(oldJti)) {
                 throw new AppException(HttpStatus.UNAUTHORIZED, "Refresh token is invalid/revoked");
             }
 
@@ -154,8 +155,11 @@ public class Auth {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(Principal principal) {
-        refreshTokenService.revokeAllByUsername(principal.getName());
+    public ResponseEntity<?> logout(Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
+            String username = ((UserDetails) authentication.getPrincipal()).getUsername();
+            refreshTokenService.revokeAllByUsername(username);
+        }
 
         return ResponseEntity.ok(
                 GExceptionsHandler.ApiResponse.<Map<String, Object>>builder()

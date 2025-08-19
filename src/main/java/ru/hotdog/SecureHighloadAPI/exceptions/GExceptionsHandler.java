@@ -36,7 +36,6 @@ public class GExceptionsHandler {
         private T data;
     }
 
-
     // валидация дто
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {

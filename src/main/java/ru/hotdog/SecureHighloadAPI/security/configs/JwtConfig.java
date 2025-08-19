@@ -2,12 +2,19 @@ package ru.hotdog.SecureHighloadAPI.security.configs;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import ru.hotdog.SecureHighloadAPI.exceptions.AppException;
 import ru.hotdog.SecureHighloadAPI.services.UserDetailsImpl;
 
 import java.nio.charset.StandardCharsets;
@@ -20,14 +27,23 @@ import java.util.stream.Collectors;
 @Component
 public class JwtConfig {
 
-    @Value("${api.app.secret}")
-    private String secret;
+    private final UserDetailsService userDetailsService; // Добавляем поле
+    private final String secret;
+    private final int accessLifetime;
+    private final int refreshLifetime;
 
-    @Value("${api.app.accesslifetime}")
-    private int accessLifetime;
-
-    @Value("${api.app.refreshlifetime}")
-    private int refreshLifetime;
+    @Autowired
+    public JwtConfig(
+            UserDetailsService userDetailsService,
+            @Value("${api.app.secret}") String secret,
+            @Value("${api.app.accesslifetime}") int accessLifetime,
+            @Value("${api.app.refreshlifetime}") int refreshLifetime
+    ) {
+        this.userDetailsService = userDetailsService;
+        this.secret = secret;
+        this.accessLifetime = accessLifetime;
+        this.refreshLifetime = refreshLifetime;
+    }
 
     public String generateAccessToken(Authentication authentication) {
         String jti = UUID.randomUUID().toString();
@@ -51,16 +67,43 @@ public class JwtConfig {
 
     // Перегрузка
     public String generateAccessToken(String username) {
-        Authentication auth = new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
-        return generateAccessToken(auth);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        return Jwts.builder()
+                .setSubject(username)
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + accessLifetime))
+                .claim("type", "access")
+                .claim("roles", roles)
+                .signWith(getSigninKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 
     public JwtPair generateRefreshToken(Authentication authentication) {
+        authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST ,"No authentication in SecurityContext - cannot generate refresh token");
+        }
+
+        Object principal = authentication.getPrincipal();
+        String username;
+        if (principal instanceof UserDetails) {
+            username = ((UserDetails) principal).getUsername();
+        } else if (principal instanceof String) {
+            username = (String) principal;
+        } else {
+            throw new AppException(HttpStatus.BAD_REQUEST ,"Unexpected principal type: " + (principal == null ? "null" : principal.getClass().getName()));
+        }
+
         log.info("Generating refreshToken");
         String jti = UUID.randomUUID().toString();
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+//        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         String token = Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .setSubject(username)
                 .setId(jti)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + refreshLifetime))

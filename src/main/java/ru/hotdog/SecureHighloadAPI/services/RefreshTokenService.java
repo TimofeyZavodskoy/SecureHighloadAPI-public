@@ -24,10 +24,9 @@ public class RefreshTokenService {
         return refreshTokenRep.save(refreshToken);
     }
 
-    public boolean isValid(String jti, Instant tokenExpFromJwt) {
+    public boolean isValid(String jti) {
         return refreshTokenRep.findByJti(jti)
                 .filter(rt -> !rt.isRevoked())
-                .filter(rt -> rt.getExpiresAt().isAfter(Instant.now()))
                 .isPresent();
     }
 

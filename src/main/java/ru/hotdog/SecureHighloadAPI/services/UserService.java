@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -98,6 +99,16 @@ public class UserService implements UserDetailsService {
     }
 
     public void deleteUser(Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            throw new AppException(HttpStatus.FORBIDDEN, "Access denied, you are not an admin");
+        }
+        if (!userRep.existsById(id)) {
+            throw new AppException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
         try {
             userRep.deleteById(id);
         } catch (BadCredentialsException e) {
@@ -105,7 +116,26 @@ public class UserService implements UserDetailsService {
         }
         log.info("Deleted user with ID: {}", id);
     }
+    @Transactional
+    public User getUserById(Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
+        if (auth == null || !auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            log.error("Access denied, you are not an admin");
+            throw new AppException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+        if (!userRep.existsById(id)) {
+            throw new AppException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        try {
+            log.info("User with ID: {}", id);
+            return userRep.findById(id).get();
+        } catch (BadCredentialsException e) {
+            throw new AppException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
 //    public void assignRoleToUser(Long id, String name) {
 //        User user = userRep.findById(id)
 //                .orElseThrow(() -> {
